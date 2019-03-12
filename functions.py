@@ -2,18 +2,12 @@ import json
 import logging
 from datetime import datetime
 import re
-import requests
-from glob import glob
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler
 from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 import airbnb
 
-from settings import PROXY, key_bot
-
 search_id = 0
-
-
 
 
 def greet_user(bot, update, user_data):
@@ -43,8 +37,8 @@ def menu(bot, update, user_data):
 def new_search(bot, update, user_data):
     global search_id
     search_id += 1
-    user_data[update.message.chat["username"]][search_id] = {}
-    user_data[update.message.chat["username"]][search_id]['search_id']= search_id
+    user_data[search_id] = {}
+    user_data[search_id]['search_id'] = search_id
     logging.info(f'@{update.message.chat["username"]} started new subscription')
     text = "Ok, now please choose your currency"
     keyboard = ReplyKeyboardMarkup([['USD$', 'EUR€', 'RUB₽', 'GBP£']], resize_keyboard=True)
@@ -61,7 +55,7 @@ def search_get_curr(bot, update, user_data):
         update.message.reply_text(text, reply_markup=keyboard, one_time_keyboard=True)
         return 'curr'
     else:
-        user_data[update.message.chat["username"]][search_id]['currency'] = curr
+        user_data[search_id]['currency'] = curr
         text = 'ok, now write city name where you want to go'
         update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         print(user_data)
@@ -70,17 +64,22 @@ def search_get_curr(bot, update, user_data):
 
 def set_city(bot, update, user_data):
     city = update.message.text
+    template = r'[a-zA-Z\s-]*'
+    match = re.fullmatch(template, city)
     if len(city) < 2:
         text = ('Sorry, you entered wrong city, length of city name should be longer than 2 letters, ' +
                 'now write city name where you want to go')
         update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         return 'city'
-    else:
-        user_data[update.message.chat["username"]][search_id]['city'] = city
+    elif match:
+        user_data[search_id]['city'] = city
         text = 'When do you want to check in? Date format: YYYY-MM-DD'
         update.message.reply_text(text)
         return 'checkin'
-
+    else:
+        text = 'Please write city name in English'
+        update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+        return 'city'
 
 def checkin(bot, update, user_data):
     check_in = update.message.text
@@ -90,7 +89,7 @@ def checkin(bot, update, user_data):
     if match:
         date = datetime.strptime(check_in, '%Y-%m-%d')
         if date > datetime.now():
-            user_data[update.message.chat["username"]][search_id]['check_in'] = check_in
+            user_data[search_id]['check_in'] = check_in
             text = 'What is the last day of your stay? Date format: YYYY-MM-DD'
             update.message.reply_text(text)
             return 'checkout'
@@ -110,9 +109,9 @@ def checkout(bot, update, user_data):
     match = re.fullmatch(template, check_out)
     if match:
         date = datetime.strptime(check_out, '%Y-%m-%d')
-        check_in = datetime.strptime(user_data[update.message.chat["username"]][search_id]['check_in'], '%Y-%m-%d')
+        check_in = datetime.strptime(user_data[search_id]['check_in'], '%Y-%m-%d')
         if check_in < date:
-            user_data[update.message.chat["username"]][search_id]['check_out'] = check_out
+            user_data[search_id]['check_out'] = check_out
             text = 'How many guests?'
             keyboard = ReplyKeyboardMarkup([['1', '2', '3'], ['4', '5', '6']], resize_keyboard=True)
             update.message.reply_text(text, reply_markup=keyboard, one_time_keyboard=True, resize_keyboard=True)
@@ -136,7 +135,7 @@ def adult(bot, update, user_data):
             update.message.reply_text(text)
             return 'adult'
         else:
-            user_data[update.message.chat["username"]][search_id]['adult'] = adults
+            user_data[search_id]['adult'] = adults
             text = 'Choose room type'
             keyboard = ReplyKeyboardMarkup([['Entire home/apt', 'Private room', 'Shared room']], resize_keyboard=True)
             update.message.reply_text(text, reply_markup=keyboard, one_time_keyboard=True, resize_keyboard=True)
@@ -149,7 +148,7 @@ def adult(bot, update, user_data):
 
 def add_room(bot, update, user_data):
     room = update.message.text
-    user_data[update.message.chat["username"]][search_id]['room_type'] = [room]
+    user_data[search_id]['room_type'] = [room]
     text = "What is your maximum price per night? Only digits"
     update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
     return 'maxprice'
@@ -157,15 +156,15 @@ def add_room(bot, update, user_data):
 
 def max_price(bot, update, user_data):
     maxprice = update.message.text
-    user_data[update.message.chat["username"]][search_id]['max_price'] = maxprice
+    user_data[search_id]['max_price'] = maxprice
     text = ('Thank you, i am starting a search for you.\n'
-            f'Your currency: {user_data[update.message.chat["username"]][search_id]["currency"]}'
-            f'\nCity: {user_data[update.message.chat["username"]][search_id]["city"]}'
-            f'\nCheck in date: {user_data[update.message.chat["username"]][search_id]["check_in"]}\n'
-            f'Check out date: {user_data[update.message.chat["username"]][search_id]["check_out"]}'
-            f'\nNumber of guests: {user_data[update.message.chat["username"]][search_id]["adult"]}\n'
-            f'Room type: {", ".join(user_data[update.message.chat["username"]][search_id]["room_type"])}'
-            f'\nMaximum price: {user_data[update.message.chat["username"]][search_id]["max_price"]}'
+            f'Your currency: {user_data[search_id]["currency"]}'
+            f'\nCity: {user_data[search_id]["city"]}'
+            f'\nCheck in date: {user_data[search_id]["check_in"]}\n'
+            f'Check out date: {user_data[search_id]["check_out"]}'
+            f'\nNumber of guests: {user_data[search_id]["adult"]}\n'
+            f'Room type: {", ".join(user_data[search_id]["room_type"])}'
+            f'\nMaximum price: {user_data[search_id]["max_price"]}'
             )
     print(user_data)
     update.message.reply_text(text)
@@ -174,17 +173,17 @@ def max_price(bot, update, user_data):
 
 
 def search_home(bot, update, user_data):
-    api = airbnb.Api(randomize=True, currency=user_data[update.message.chat["username"]][search_id]["currency"])
+    api = airbnb.Api(randomize=True, currency=user_data[search_id]["currency"])
     print(user_data)
-    homes = api.get_homes(query=user_data[update.message.chat["username"]][search_id]['city'],
-                          adults=user_data[update.message.chat["username"]][search_id]["adult"],
-                          price_max=user_data[update.message.chat["username"]][search_id]["max_price"],
-                          checkin=user_data[update.message.chat["username"]][search_id]["check_in"],
-                          checkout=user_data[update.message.chat["username"]][search_id]["check_out"],
-                          room_types=user_data[update.message.chat["username"]][search_id]["room_type"])
+    homes = api.get_homes(query=user_data[search_id]['city'],
+                          adults=user_data[search_id]["adult"],
+                          price_max=user_data[search_id]["max_price"],
+                          checkin=user_data[search_id]["check_in"],
+                          checkout=user_data[search_id]["check_out"],
+                          room_types=user_data[search_id]["room_type"])
 
     with open(f'@{update.message.chat["username"]}' +
-              f'{user_data[update.message.chat["username"]][search_id]["search_id"]}'+'.json', 'w') as file:
+              f'{user_data[search_id]["search_id"]}'+'.json', 'w') as file:
         json.dump(homes, file)
 
 

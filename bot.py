@@ -1,13 +1,3 @@
-import json
-import logging
-from datetime import datetime
-import re
-import requests
-from glob import glob
-
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler
-from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-import airbnb
 from functions import *
 from settings import PROXY, key_bot
 
