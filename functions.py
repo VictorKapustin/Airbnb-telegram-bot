@@ -3,8 +3,8 @@ import logging
 from datetime import datetime
 import re
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler
-from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler, CallbackQueryHandler
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import airbnb
 
 search_id = 0
@@ -17,6 +17,7 @@ def greet_user(bot, update, user_data):
             " · Press Menu, to add your first notification or to edit existing\n"
             " · To read full description of bot functions press Help button")
     logging.info(f'@{update.message.chat["username"]} called greet_user')
+
     keyboard = ReplyKeyboardMarkup([['Menu', 'My subscriptions', 'Help']], resize_keyboard=True)
     if update.message.chat["username"] in user_data:
         update.message.reply_text(text, reply_markup=keyboard)
@@ -65,6 +66,7 @@ def search_get_curr(bot, update, user_data):
 def set_city(bot, update, user_data):
     city = update.message.text
     template = r'[a-zA-Z\s-]*'
+    # '*'=Любое количество символов, '\s'=space, '-' должен идти последним или первым
     match = re.fullmatch(template, city)
     if len(city) < 2:
         text = ('Sorry, you entered wrong city, length of city name should be longer than 2 letters, ' +
@@ -166,7 +168,6 @@ def max_price(bot, update, user_data):
             f'Room type: {", ".join(user_data[search_id]["room_type"])}'
             f'\nMaximum price: {user_data[search_id]["max_price"]}'
             )
-    print(user_data)
     update.message.reply_text(text)
     search_home(bot, update, user_data)
     return ConversationHandler.END
@@ -174,17 +175,17 @@ def max_price(bot, update, user_data):
 
 def search_home(bot, update, user_data):
     api = airbnb.Api(randomize=True, currency=user_data[search_id]["currency"])
-    print(user_data)
     homes = api.get_homes(query=user_data[search_id]['city'],
                           adults=user_data[search_id]["adult"],
                           price_max=user_data[search_id]["max_price"],
                           checkin=user_data[search_id]["check_in"],
                           checkout=user_data[search_id]["check_out"],
                           room_types=user_data[search_id]["room_type"])
+    print(homes['explore_tabs']) #[0]["sections"][1]["listings"]["listing"]["id"]
 
-    with open(f'@{update.message.chat["username"]}' +
-              f'{user_data[search_id]["search_id"]}'+'.json', 'w') as file:
-        json.dump(homes, file)
+    # with open(f'@{update.message.chat["username"]}' +
+    #           f'{user_data[search_id]["search_id"]}'+'.json', 'w') as file:
+    #     json.dump(homes, file)
 
 
 def help_comm(bot, update, user_data):
