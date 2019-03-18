@@ -1,35 +1,44 @@
 import json
 import logging
 from datetime import datetime
+import arrow
 import re
 from settings import web_url
 from telegram.ext import ConversationHandler
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import airbnb
 import requests
-
-search_id = 0
+from texts import greeting, help_text, thank_text, reduce_price
+import time
 inline = 'inline'
 
-def greet_user(bot, update, user_data):
-    text = ("Hi! I'm bot low cost offers finder at Airbnb.\n\n"
-            "I will follow your filters and tell you when i find new offer for you.\n\n"
-            "It's simple to use me:\n"
-            " · Press Menu, to add your first notification or to edit existing\n"
-            " · To read full description of bot functions press Help button")
 
-    keyboard = [[InlineKeyboardButton("Menu", callback_data='Menu'),
-                 InlineKeyboardButton("My subscriptions", callback_data='My subscriptions')],
-
-                [InlineKeyboardButton("Help", callback_data='Help')]]
+def keys(buttons):
+    """
+    compile inline keyboard
+    :param buttons: list of dictionaries, every dictionary is row of buttons
+    :return:
+    """
+    keyboard = []
+    row_count = 0
+    for row in buttons:
+        keyboard.append([])
+        for key, value in row.items():
+            keyboard[row_count].append(InlineKeyboardButton(key, callback_data=value))
+        row_count += 1
     reply_markup = InlineKeyboardMarkup(keyboard)
+    return reply_markup
 
-    update.message.reply_text(text, reply_markup=reply_markup)
+
+def greet_user(bot, update, user_data):
+    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    update.message.reply_text(greeting, reply_markup=keys(buttons))
     return inline
 
 
 def main_menu(bot, update, user_data):
     command = update.callback_query.data.split(';')
+    print(command)
     functions = {'Menu': menu,
                  'Help': help_comm,
                  'My subscriptions': my_subs,
@@ -37,10 +46,16 @@ def main_menu(bot, update, user_data):
                  'Curr': currency,
                  'Adults': adults,
                  'Room': add_room,
-                 'Save': search_home,
-                 'Edit': edit}
-
-    return functions[command[0]](bot, update, user_data)
+                 'Save': search_home,  # через раз выбрасывает ошибку
+                 'Edit': edit,
+                 'day': stay_days}
+    try:
+        return functions[command[0]](bot, update, user_data)
+    except(KeyError):
+        query = update.callback_query
+        logging.info(f'@{query["message"]["chat"]["username"]} called not existing state for main_menu')
+        text = "Sorry, we couldn't process your command, please use /start command to start over"
+        query.edit_message_text(text)
 
 
 def edit(bot, update, user_data):
@@ -61,60 +76,35 @@ def adults(bot, update, user_data):
 
 def menu(bot, update, user_data):
     text = "Do you want to add new search or edit existing?"
-
-    keyboard = [[InlineKeyboardButton('New search', callback_data='New search'),
-                 InlineKeyboardButton('Edit existing search', callback_data='Edit existing search')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    buttons = [{'New search': 'New search', 'Edit existing search': 'Edit existing search'}]
     query = update.callback_query
-
-    query.edit_message_text(text, reply_markup=reply_markup)
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return inline
 
 
 def help_comm(bot, update, user_data):
-    text = '''What does this bot do?\n
-Tracks prices for apartments that suits your criteria, when it founds new offer bot sends you picture, price and link to this offer.\n
-You should set your currency, check in and check out dates, number of guests, city name, room types, minimum and maximum price per night.\n
-How to use?
-1.To make first search subscription go to menu and then press "New search".\n
-2.Set all required parameters.\n
-3. Press save, now you made your first subscription.\n
-To change or delete parameters go to menu and press "edit".
-To show all of your subscriptions go to menu and press "my subscriptions".
-    '''
-    keyboard = [[InlineKeyboardButton("Menu", callback_data='Menu'),
-                 InlineKeyboardButton("My subscriptions", callback_data='My subscriptions')],
-                [InlineKeyboardButton("Help", callback_data='Help')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
-    query.edit_message_text(text, reply_markup=reply_markup)
+    query.edit_message_text(help_text, reply_markup=keys(buttons))
     return inline
 
 
 def my_subs(bot, update, user_data):
     text = 'Здесь должны быть существующие подписки'
-    keyboard = [[InlineKeyboardButton("Menu", callback_data='Menu'),
-                 InlineKeyboardButton("My subscriptions", callback_data='My subscriptions')],
-                [InlineKeyboardButton("Help", callback_data='Help')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
-    query.edit_message_text(text, reply_markup=reply_markup)
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return inline
 
 
 def new_search(bot, update, user_data):
-    global search_id
-    search_id += 1
-    user_data['search_id'] = str(search_id)
-    logging.info(f'@{update.callback_query.message["username"]} started new subscription')
-    text = "Ok, now please choose your currency"
-    keyboard = [[InlineKeyboardButton('USD$', callback_data='Curr;USD'),
-                 InlineKeyboardButton('EUR€', callback_data='Curr;EUR')],
-                [InlineKeyboardButton('RUB₽', callback_data='Curr;RUB'),
-                 InlineKeyboardButton('GBP£', callback_data='Curr;GBP')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.search_id += 1
+    user_data['search_id'] = str(bot.search_id)
     query = update.callback_query
-    query.edit_message_text(text, reply_markup=reply_markup)
+    logging.info(f'@{query["message"]["chat"]["username"]} started new subscription')
+    text = "Ok, now please choose your currency"
+    buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'}, {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return inline
 
 
@@ -127,7 +117,7 @@ def get_city(bot, update, user_data):
 
 def set_city(bot, update, user_data):
     city = update.message.text
-    template = r'[a-zA-Z\s-]*'
+    template = '[a-zA-Z\s-]*'
     # '*'=Любое количество символов, '\s'=space, '-' должен идти последним или первым
     match = re.fullmatch(template, city)
     if len(city) < 2:
@@ -137,27 +127,28 @@ def set_city(bot, update, user_data):
         return 'city'
     elif match:
         user_data['city'] = city
-        text = 'When do you want to check in? Date format: YYYY-MM-DD'
-        update.message.reply_text(text)
-        return 'checkin'
+        return ask_for_check_in(bot, update, user_data)
     else:
         text = 'Please write city name in English'
         update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         return 'city'
 
 
+def ask_for_check_in(bot, update, user_data):
+    text = 'When do you want to check in? Date format: YYYY-MM-DD'
+    update.message.reply_text(text)
+    return 'checkin'
+
+
 def checkin(bot, update, user_data):
     check_in = update.message.text
-    template = r'\d{4}-\d\d-\d\d'
+    template = '\d{4}-\d\d-\d\d'
     match = re.fullmatch(template, check_in)
-
     if match:
-        date = datetime.strptime(check_in, '%Y-%m-%d')
-        if date > datetime.now():
+        date = arrow.get(check_in)
+        if date > arrow.utcnow():
             user_data['check_in'] = check_in
-            text = 'What is the last day of your stay? Date format: YYYY-MM-DD'
-            update.message.reply_text(text)
-            return 'checkout'
+            return ask_for_check_out(bot, update, user_data)
         else:
             text = 'Your date is in the past, please enter date in future, format: YYYY-MM-DD'
             update.message.reply_text(text)
@@ -168,44 +159,44 @@ def checkin(bot, update, user_data):
         return 'checkin'
 
 
-def checkout(bot, update, user_data):
-    check_out = update.message.text
-    template = r'\d{4}-\d{2}-\d{2}'
-    match = re.fullmatch(template, check_out)
-    if match:
-        date = datetime.strptime(check_out, '%Y-%m-%d')
-        check_in = datetime.strptime(user_data['check_in'], '%Y-%m-%d')
-        if check_in < date:
-            user_data['check_out'] = check_out
-            text = 'How many guests?'
-            keyboard = [[InlineKeyboardButton('1', callback_data='Adults;1'),
-                         InlineKeyboardButton('2', callback_data='Adults;2'),
-                         InlineKeyboardButton('3', callback_data='Adults;3')],
+def ask_for_check_out(bot, update, user_data):
+    text = 'How many days would you like stay?'
+    buttons = [{}, {}, {}, {}]
+    day = 1
+    for row in buttons:
+        for i in range(6):
+            row[str(day)] = 'day;'+str(day)
+            day += 1
+    update.message.reply_text(text, reply_markup=keys(buttons))
+    return inline
 
-                        [InlineKeyboardButton('4', callback_data='Adults;4'),
-                         InlineKeyboardButton('5', callback_data='Adults;5'),
-                         InlineKeyboardButton('6', callback_data='Adults;6')]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            update.message.reply_text(text, reply_markup=reply_markup)
-            return inline
-        else:
-            text = 'Your date of checkout is earlier than check in, please enter valid date, format: YYYY-MM-DD'
-            update.message.reply_text(text)
-            return 'checkout'
-    else:
-        text = 'Your date is incorrect, please enter date in format YYYY-MM-DD'
-        update.message.reply_text(text)
-        return 'checkout'
+
+def stay_days(bot, update, user_data):
+    days = update.callback_query.data.split(';')[1]
+    check_in = arrow.get(user_data['check_in'])
+    check_out = str(check_in.replace(days=int(days)).date())
+    user_data['check_out'] = check_out
+    return ask_for_guests_number(bot, update, user_data)
+
+
+
+def ask_for_guests_number(bot, update, user_data):
+        text = 'How many guests?'
+        buttons = [{'1': 'Adults;1', '2': 'Adults;2', '3': 'Adults;3'},
+                  {'4': 'Adults;4', '5': 'Adults;5', '6': 'Adults;6'}]
+        query = update.callback_query
+        query.edit_message_text(text, reply_markup=keys(buttons))
+        return inline
+
 
 
 def choose_room(bot, update, user_data):
     text = 'Choose room type'
-    keyboard = [[InlineKeyboardButton('Entire home/apt', callback_data='Room;Entire home/apt')],
-                [InlineKeyboardButton('Private room', callback_data='Room;Private room')],
-                [InlineKeyboardButton('Shared room', callback_data='Room;Shared room')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    buttons = [{'Entire home/apt': 'Room;Entire home/apt'},
+               {'Private room': 'Room;Private room'},
+               {'Shared room': 'Room;Shared room'}]
     query = update.callback_query
-    query.edit_message_text(text, reply_markup=reply_markup)
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return inline
 
 
@@ -230,23 +221,12 @@ def max_price(bot, update, user_data):
             f'Room type: {", ".join(user_data["room_type"])}'
             f'\nMaximum price: {user_data["max_price"]}'
             )
-    keyboard = [[InlineKeyboardButton('Save', callback_data='Save'),
-                 InlineKeyboardButton('Edit', callback_data='Edit')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(text, reply_markup=reply_markup)
+    buttons = [{'Save': 'Save', 'Edit': 'Edit'}]
+    update.message.reply_text(text, reply_markup=keys(buttons))
     return inline
 
 
-def save_start(bot, update, user_data):
-    search_home(bot, update, user_data)
-
-
-
 def search_home(bot, update, user_data):
-    """
-    Надо выполнить поиск на данный момент, получить список id листингов,
-    выдать ссылку на существующие варианты, добавить в бд все данные
-    """
     api = airbnb.Api(randomize=True, currency=user_data["currency"])
     homes = api.get_homes(query=user_data['city'],
                           adults=user_data["adults"],
@@ -254,9 +234,19 @@ def search_home(bot, update, user_data):
                           checkin=user_data["check_in"],
                           checkout=user_data["check_out"],
                           room_types=user_data["room_type"])
-    print(homes['explore_tabs'][0]["sections"]) #[0]["sections"][1]["listings"]["listing"]["id"]
-    # тут происходит ошибка индекса через раз
+    query = update.callback_query
 
+    listings = homes['explore_tabs'][0]["sections"][0]['listings']  # Сохраняю существующие предложения в user_data
+    available = []
+    for listing in listings:
+        available.append(listing["listing"]["id"])
+    user_data['available_listings'] = available
+    text = thank_text
+    if len(user_data['available_listings']) == 50:  # Выполняем проверку, что заданный поиск достаточно узкий
+        text = reduce_price
+    else:
+        # добавлять user_data данные в бд и начинать отслеживать новые объявления
+        print(user_data)
     params = {  # Ссылка для выдачи на веб на существующие варианты
         'query': user_data['city'],
         'adults': user_data["adults"],
@@ -265,29 +255,14 @@ def search_home(bot, update, user_data):
         'price_max': user_data["max_price"],
         'checkin': user_data["check_in"],
         'checkout': user_data["check_out"],
-        'room_types[]': user_data["room_type"],  # ['Entire home/apt', 'Private room', 'Shared room']
+        'room_types[]': user_data["room_type"],
         'refinement_paths[]': '/homes',
         'display_currency': user_data["currency"]
     }
 
     give_url = requests.get(web_url, params=params)
-
-    text = 'Thank you, we added your subscription and started to track it, ' \
-           'by pressing button bellow you will go to airbnb website and get ' \
-           'existing listings for your search and we will notify you about new offers'
-
     keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    query = update.callback_query
     query.edit_message_text(text, reply_markup=reply_markup)
-
-    #return ConversationHandler.END
-
-
-    # with open(f'@{update.message.chat["username"]}' +
-    #           f'{user_data[search_id]["search_id"]}'+'.json', 'w') as file:
-    #     json.dump(homes, file)
-
-
 
 
