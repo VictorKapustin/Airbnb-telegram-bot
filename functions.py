@@ -38,7 +38,6 @@ def greet_user(bot, update, user_data):
 
 def main_menu(bot, update, user_data):
     command = update.callback_query.data.split(';')
-    print(command)
     functions = {'Menu': menu,
                  'Help': help_comm,
                  'My subscriptions': my_subs,
@@ -49,13 +48,8 @@ def main_menu(bot, update, user_data):
                  'Save': search_home,  # через раз выбрасывает ошибку
                  'Edit': edit,
                  'day': stay_days}
-    try:
-        return functions[command[0]](bot, update, user_data)
-    except(KeyError):
-        query = update.callback_query
-        logging.info(f'@{query["message"]["chat"]["username"]} called not existing state for main_menu')
-        text = "Sorry, we couldn't process your command, please use /start command to start over"
-        query.edit_message_text(text)
+
+    return functions.get(command[0])(bot, update, user_data)
 
 
 def edit(bot, update, user_data):
@@ -227,26 +221,37 @@ def max_price(bot, update, user_data):
 
 
 def search_home(bot, update, user_data):
-    api = airbnb.Api(randomize=True, currency=user_data["currency"])
-    homes = api.get_homes(query=user_data['city'],
-                          adults=user_data["adults"],
-                          price_max=user_data["max_price"],
-                          checkin=user_data["check_in"],
-                          checkout=user_data["check_out"],
-                          room_types=user_data["room_type"])
     query = update.callback_query
+    user_data['available_listings'] = []
+    items_offset = 0
+    has_next_page = True
+    api = airbnb.Api(randomize=True, currency=user_data["currency"])
+    while has_next_page:
+        homes = api.get_homes(query=user_data['city'],
+                              adults=user_data["adults"],
+                              price_max=user_data["max_price"],
+                              checkin=user_data["check_in"],
+                              checkout=user_data["check_out"],
+                              room_types=user_data["room_type"],
+                              offset=items_offset)  # Отступ объявлений
 
-    listings = homes['explore_tabs'][0]["sections"][0]['listings']  # Сохраняю существующие предложения в user_data
-    available = []
-    for listing in listings:
-        available.append(listing["listing"]["id"])
-    user_data['available_listings'] = available
+        try:
+            listings = homes['explore_tabs'][0]["sections"][1]['listings']
+        except(IndexError):
+            listings = homes['explore_tabs'][0]["sections"][0]['listings']
+
+        for listing in listings:
+            user_data['available_listings'].append(listing["listing"]["id"])
+
+        has_next_page = homes['explore_tabs'][0]['pagination_metadata']['has_next_page']
+        try:
+            items_offset = homes['explore_tabs'][0]['pagination_metadata']['items_offset']
+        except KeyError:
+            print('no next page')
+
+    print(user_data)
+    print(len(set(user_data['available_listings'])))
     text = thank_text
-    if len(user_data['available_listings']) == 50:  # Выполняем проверку, что заданный поиск достаточно узкий
-        text = reduce_price
-    else:
-        # добавлять user_data данные в бд и начинать отслеживать новые объявления
-        print(user_data)
     params = {  # Ссылка для выдачи на веб на существующие варианты
         'query': user_data['city'],
         'adults': user_data["adults"],
