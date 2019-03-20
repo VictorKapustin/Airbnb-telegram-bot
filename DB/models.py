@@ -2,13 +2,9 @@ from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, DECIMAL
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
-<<<<<<< HEAD:DB/models.py
+
 import settings
 
- 
-=======
-
->>>>>>> DB:models.py
 Base = declarative_base()
 
 
@@ -28,10 +24,7 @@ class User(Base):
 
 class Subscription(Base):
     __tablename__ = 'subscription'
-<<<<<<< HEAD:DB/models.py
-=======
     id = Column(Integer, primary_key=True, autoincrement=True)
->>>>>>> DB:models.py
     telegram_id = Column(String(25), ForeignKey('user.telegram_id'))
     id = Column(Integer, primary_key=True, autoincrement=True)
     check_in = Column(DateTime)
