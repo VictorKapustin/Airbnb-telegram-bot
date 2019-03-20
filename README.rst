@@ -34,3 +34,4 @@ Create file settings.py
 
     key_bot = "YOUR KEY FROM @BotFather"
     PROXY = {'proxy_url': 'socks5://YOUR_URL_PROXY:1080','urllib3_proxy_kwargs': {'username': 'LOGIN', 'password': 'PASS'}}
+    SQLALCHEMY_DATABASE_URI = "PATH TO DATABASE FILE LOCATION"
