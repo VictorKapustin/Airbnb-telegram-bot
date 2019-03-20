@@ -10,6 +10,7 @@ import airbnb
 import requests
 from texts import greeting, help_text, thank_text, reduce_price
 import time
+from DB.db_methods import *
 inline = 'inline'
 
 
@@ -33,6 +34,8 @@ def keys(buttons):
 def greet_user(bot, update, user_data):
     buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     update.message.reply_text(greeting, reply_markup=keys(buttons))
+    if not user_in_db(update.message.chat["id"]):
+        add_new_user(update.message.chat)
     return inline
 
 
@@ -217,6 +220,7 @@ def max_price(bot, update, user_data):
             )
     buttons = [{'Save': 'Save', 'Edit': 'Edit'}]
     update.message.reply_text(text, reply_markup=keys(buttons))
+    add_new_subscription(update.message.chat["id"], user_data)
     return inline
 
 
