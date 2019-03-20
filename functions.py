@@ -3,9 +3,18 @@ import logging
 from datetime import datetime
 import arrow
 import re
+<<<<<<< HEAD
 #from settings import web_url
 from telegram.ext import ConversationHandler
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+=======
+from sqlalchemy import create_engine
+from sqlalchemy.sql import select
+from sqlalchemy.orm import sessionmaker
+from models import Base, User, Subscription
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler, ConversationHandler
+from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+>>>>>>> DB
 import airbnb
 import requests
 from texts import greeting, help_text, thank_text, reduce_price
@@ -14,6 +23,7 @@ from DB.db_methods import *
 inline = 'inline'
 
 
+<<<<<<< HEAD
 def keys(buttons):
     """
     compile inline keyboard
@@ -69,6 +79,38 @@ def adults(bot, update, user_data):
     adult = update.callback_query.data.split(';')[1]
     user_data['adults'] = adult
     return choose_room(bot, update, user_data)
+=======
+search_id = 0
+engine = create_engine("sqlite:///user_subs.db")
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
+session = DBSession()
+
+def greet_user(bot, update, user_data):
+    text = ("Hi! I'm bot low cost offers finder at Airbnb.\n\n"
+            "I will follow your filters and tell you when i find new offer for you.\n\n"
+            "It's simple to use me:\n"
+            " · Press Menu, to add your first notification or to edit existing\n"
+            " · To read full description of bot functions press Help button")
+    logging.info(f'@{update.message.chat["username"]} called greet_user')
+    keyboard = ReplyKeyboardMarkup([['Menu', 'My subscriptions', 'Help']], resize_keyboard=True)
+    if update.message.chat["username"] in user_data:
+        update.message.reply_text(text, reply_markup=keyboard)
+        print(user_data)
+    else:
+        user_data[update.message.chat["username"]] = {}
+        update.message.reply_text(text, reply_markup=keyboard)
+        print(user_data)
+    logging.info("Add user in DB if he's not there yet")
+    chat = update.message.chat
+    sel = select([User]).where(User.telegram_id == chat["id"])
+    result = session.execute(sel)
+    if not result.first():
+        new_user = User(telegram_id=chat["id"], first_name=chat['first_name'], last_name=chat['last_name'],
+                        username=chat['username'])
+        session.add(new_user)
+        session.commit()
+>>>>>>> DB
 
 
 def menu(bot, update, user_data):
@@ -218,10 +260,27 @@ def max_price(bot, update, user_data):
             f'Room type: {", ".join(user_data["room_type"])}'
             f'\nMaximum price: {user_data["max_price"]}'
             )
+<<<<<<< HEAD
     buttons = [{'Save': 'Save', 'Edit': 'Edit'}]
     update.message.reply_text(text, reply_markup=keys(buttons))
     add_new_subscription(update.message.chat["id"], user_data)
     return inline
+=======
+    logging.info("Add subscription new in DB")
+    new_subscription = Subscription(telegram_id=update.message.chat["id"],
+                                    check_in=datetime.strptime(user_data[search_id]["check_in"], "%Y-%m-%d"),
+                                    check_out=datetime.strptime(user_data[search_id]["check_out"], "%Y-%m-%d"),
+                                    city=user_data[search_id]["city"], currency=user_data[search_id]["currency"],
+                                    max_price=user_data[search_id]["max_price"])
+    session.add(new_subscription)
+    session.commit()
+    print(user_data)
+    update.message.reply_text(text)
+    search_home(bot, update, user_data)
+
+
+    return ConversationHandler.END
+>>>>>>> DB
 
 
 def search_home(bot, update, user_data):
