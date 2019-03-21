@@ -27,11 +27,15 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(String(25), ForeignKey('user.telegram_id'))
     id = Column(Integer, primary_key=True, autoincrement=True)
-    check_in = Column(DateTime)
+    check_in = Column(DateTime)  #TODO мы можем хранить просто строку
     check_out = Column(DateTime)
     city = Column(String(25))
     currency = Column(String(3))
+    adults = Column(String(1))   # Probably unsupported type
+    room_type = Column(String(25))  # Probably unsupported type
     max_price = Column(DECIMAL)
+    # available_listings = Column() Надо передать список
+
     user = relationship("User", backref='subscriptions')
 
     def __repr__(self):

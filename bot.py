@@ -1,5 +1,5 @@
 import logging
-from functions import inline, main_menu, set_city, checkin, max_price, greet_user, ask_for_check_in
+from functions import inline, main_menu, set_city, checkin, max_price, greet_user
 from settings import PROXY, key_bot
 from telegram.ext import CallbackQueryHandler, MessageHandler, Filters, Updater, CommandHandler, ConversationHandler
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',

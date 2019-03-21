@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.sql import select
 from sqlalchemy.orm import sessionmaker
-from .models import User, Subscription
+from DB.models import User, Subscription
 import logging
 import settings
 from datetime import datetime
@@ -48,6 +48,8 @@ def add_new_subscription(telegram_id, user_data):
                                     check_in=datetime.strptime(user_data["check_in"], "%Y-%m-%d"),
                                     check_out=datetime.strptime(user_data["check_out"], "%Y-%m-%d"),
                                     city=user_data["city"], currency=user_data["currency"],
-                                    max_price=user_data["max_price"])
+                                    max_price=user_data["max_price"],
+                                    adults=user_data['adults'],
+                                    room_type=user_data["room_type"])
     session.add(new_subscription)
     session.commit()

@@ -1,15 +1,11 @@
-import json
-import logging
-from datetime import datetime
+
 import arrow
 import re
 from settings import web_url
-from telegram.ext import ConversationHandler
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import airbnb
 import requests
-from texts import greeting, help_text, thank_text, reduce_price
-import time
+from texts import greeting, help_text, thank_text
 from DB.db_methods import *
 inline = 'inline'
 
@@ -48,7 +44,7 @@ def main_menu(bot, update, user_data):
                  'Curr': currency,
                  'Adults': adults,
                  'Room': add_room,
-                 'Save': search_home,  # через раз выбрасывает ошибку
+                 'Save': search_home,
                  'Edit': edit,
                  'day': stay_days}
 
@@ -241,7 +237,7 @@ def search_home(bot, update, user_data):
 
         try:
             listings = homes['explore_tabs'][0]["sections"][1]['listings']
-        except(IndexError):
+        except IndexError:
             listings = homes['explore_tabs'][0]["sections"][0]['listings']
 
         for listing in listings:
