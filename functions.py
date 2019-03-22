@@ -1,15 +1,11 @@
-import json
-import logging
-from datetime import datetime
+
 import arrow
 import re
 from settings import web_url
-from telegram.ext import ConversationHandler
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import airbnb
 import requests
-from texts import greeting, help_text, thank_text, reduce_price
-import time
+from texts import greeting, help_text, thank_text
 from DB.db_methods import *
 inline = 'inline'
 
@@ -48,7 +44,7 @@ def main_menu(bot, update, user_data):
                  'Curr': currency,
                  'Adults': adults,
                  'Room': add_room,
-                 'Save': search_home,  # через раз выбрасывает ошибку
+                 'Save': search_home,
                  'Edit': edit,
                  'day': stay_days}
 
@@ -199,7 +195,7 @@ def choose_room(bot, update, user_data):
 
 def add_room(bot, update, user_data):
     room = update.callback_query.data.split(';')[1]
-    user_data['room_type'] = [room]
+    user_data['room_type'] = room
     text = "What is your maximum price per night? Only digits"
     query = update.callback_query
     query.edit_message_text(text)
@@ -215,17 +211,18 @@ def max_price(bot, update, user_data):
             f'\nCheck in date: {user_data["check_in"]}\n'
             f'Check out date: {user_data["check_out"]}'
             f'\nNumber of guests: {user_data["adults"]}\n'
-            f'Room type: {", ".join(user_data["room_type"])}'
+            f'Room type: {user_data["room_type"]}'
             f'\nMaximum price: {user_data["max_price"]}'
             )
     buttons = [{'Save': 'Save', 'Edit': 'Edit'}]
     update.message.reply_text(text, reply_markup=keys(buttons))
-    add_new_subscription(update.message.chat["id"], user_data)
+
     return inline
 
 
 def search_home(bot, update, user_data):
     query = update.callback_query
+    print(query)
     user_data['available_listings'] = []
     items_offset = 0
     has_next_page = True
@@ -241,7 +238,7 @@ def search_home(bot, update, user_data):
 
         try:
             listings = homes['explore_tabs'][0]["sections"][1]['listings']
-        except(IndexError):
+        except IndexError:
             listings = homes['explore_tabs'][0]["sections"][0]['listings']
 
         for listing in listings:
@@ -252,6 +249,10 @@ def search_home(bot, update, user_data):
             items_offset = homes['explore_tabs'][0]['pagination_metadata']['items_offset']
         except KeyError:
             print('no next page')
+
+    """BD WRITE"""
+    sub_id = add_new_subscription(query['message']['chat']["id"], user_data)
+    add_listings(user_data['available_listings'], sub_id)
 
     print(user_data)
     print(len(set(user_data['available_listings'])))
