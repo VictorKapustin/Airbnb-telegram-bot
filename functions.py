@@ -9,7 +9,11 @@ from DB.db_methods import add_listings, add_new_subscription, add_new_user, user
 from texts import greeting, help_text, thank_text
 from settings import web_url
 
-inline = 'inline'
+INLINE = 'inline'
+
+
+def my_handler(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Привет")
 
 
 def keys(buttons):
@@ -19,12 +23,10 @@ def keys(buttons):
     :return:
     """
     keyboard = []
-    row_count = 0
-    for row in buttons:
+    for row_count, row in enumerate(buttons):
         keyboard.append([])
         for key, value in row.items():
             keyboard[row_count].append(InlineKeyboardButton(key, callback_data=value))
-        row_count += 1
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
 
@@ -34,7 +36,7 @@ def greet_user(bot, update, user_data):
     update.message.reply_text(greeting, reply_markup=keys(buttons))
     if not user_in_db(update.message.chat["id"]):
         add_new_user(update.message.chat)
-    return inline
+    return INLINE
 
 
 def main_menu(bot, update, user_data):
@@ -74,14 +76,14 @@ def menu(bot, update, user_data):
     buttons = [{'New search': 'New search', 'Edit existing search': 'Edit existing search'}]
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def help_comm(bot, update, user_data):
     buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     query.edit_message_text(help_text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def my_subs(bot, update, user_data):
@@ -89,7 +91,7 @@ def my_subs(bot, update, user_data):
     buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def new_search(bot, update, user_data):
@@ -100,7 +102,7 @@ def new_search(bot, update, user_data):
     text = "Ok, now please choose your currency"
     buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'}, {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
     query.edit_message_text(text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def get_city(bot, update, user_data):
@@ -159,11 +161,11 @@ def ask_for_check_out(bot, update, user_data):
     buttons = [{}, {}, {}, {}]
     day = 1
     for row in buttons:
-        for i in range(6):
+        for day_number in range(6):
             row[str(day)] = 'day;'+str(day)
             day += 1
     update.message.reply_text(text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def stay_days(bot, update, user_data):
@@ -181,7 +183,7 @@ def ask_for_guests_number(bot, update, user_data):
                   {'4': 'Adults;4', '5': 'Adults;5', '6': 'Adults;6'}]
         query = update.callback_query
         query.edit_message_text(text, reply_markup=keys(buttons))
-        return inline
+        return INLINE
 
 
 
@@ -192,7 +194,7 @@ def choose_room(bot, update, user_data):
                {'Shared room': 'Room;Shared room'}]
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
-    return inline
+    return INLINE
 
 
 def add_room(bot, update, user_data):
@@ -219,7 +221,12 @@ def max_price(bot, update, user_data):
     buttons = [{'Save': 'Save', 'Edit': 'Edit'}]
     update.message.reply_text(text, reply_markup=keys(buttons))
 
-    return inline
+    return INLINE
+
+
+def bd_write_subscription(query, user_data):
+    sub_id = add_new_subscription(query['message']['chat']["id"], user_data)
+    add_listings(user_data['available_listings'], sub_id)
 
 
 def search_home(bot, update, user_data):
@@ -239,9 +246,19 @@ def search_home(bot, update, user_data):
                               offset=items_offset)  # Отступ объявлений
 
         try:
-            listings = homes['explore_tabs'][0]["sections"][1]['listings']
+            try:
+                listings = homes['explore_tabs'][0]["sections"][1]['listingss']
+            except KeyError: #TODO сделать выброс в главное меню без вызова команды старт
+                text = "Sorry we could't process your request, please try again, call /start command"
+                query.edit_message_text(text)
+                return greet_user(bot, update, user_data)
         except IndexError:
-            listings = homes['explore_tabs'][0]["sections"][0]['listings']
+            try:
+                listings = homes['explore_tabs'][0]["sections"][0]['listingss']
+            except KeyError:
+                text = "Sorry we could't process your request, please try again, call /start command"
+                query.edit_message_text(text)
+                return greet_user(bot, update, user_data)
 
         for listing in listings:
             user_data['available_listings'].append(listing["listing"]["id"])
@@ -252,9 +269,7 @@ def search_home(bot, update, user_data):
         except KeyError:
             print('no next page')
 
-    """BD WRITE"""
-    sub_id = add_new_subscription(query['message']['chat']["id"], user_data)
-    add_listings(user_data['available_listings'], sub_id)
+    bd_write_subscription(query, user_data)
 
     print(user_data)
     print(len(set(user_data['available_listings'])))
@@ -276,5 +291,6 @@ def search_home(bot, update, user_data):
     keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(text, reply_markup=reply_markup)
+
 
 
