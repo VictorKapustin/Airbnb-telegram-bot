@@ -12,10 +12,6 @@ from settings import web_url
 INLINE = 'inline'
 
 
-def my_handler(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Привет")
-
-
 def keys(buttons):
     """
     compile inline keyboard
@@ -247,14 +243,14 @@ def search_home(bot, update, user_data):
 
         try:
             try:
-                listings = homes['explore_tabs'][0]["sections"][1]['listingss']
+                listings = homes['explore_tabs'][0]["sections"][1]['listings']
             except KeyError: #TODO сделать выброс в главное меню без вызова команды старт
                 text = "Sorry we could't process your request, please try again, call /start command"
                 query.edit_message_text(text)
                 return greet_user(bot, update, user_data)
         except IndexError:
             try:
-                listings = homes['explore_tabs'][0]["sections"][0]['listingss']
+                listings = homes['explore_tabs'][0]["sections"][0]['listings']
             except KeyError:
                 text = "Sorry we could't process your request, please try again, call /start command"
                 query.edit_message_text(text)
