@@ -1,12 +1,14 @@
-
-import arrow
-import re
-from settings import web_url
-from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-import airbnb
 import requests
+import re
+import logging
+import airbnb
+import arrow
+from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+
+from DB.db_methods import add_listings, add_new_subscription, add_new_user, user_in_db
 from texts import greeting, help_text, thank_text
-from DB.db_methods import *
+from settings import web_url
+
 inline = 'inline'
 
 

@@ -34,8 +34,8 @@ class Subscription(Base):
     __tablename__ = 'subscription'
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(String(25), ForeignKey('user.telegram_id'))
-    check_in = Column(DateTime)  #TODO мы можем хранить просто строку
-    check_out = Column(DateTime)
+    check_in = Column(String(10))  #TODO мы можем хранить просто строку
+    check_out = Column(String(10))
     city = Column(String(25))
     currency = Column(String(3))
     adults = Column(String(1))
