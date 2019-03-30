@@ -5,7 +5,8 @@ import airbnb
 import arrow
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 
-from DB.db_methods import add_listings, add_new_subscription, add_new_user, user_in_db
+from DB.db_methods import add_listings, add_new_subscription, add_new_user, user_in_db, get_my_subscriptions
+from DB.db_methods import get_subscription_by_id, delete_subcription
 from texts import greeting, help_text, thank_text
 from settings import web_url
 
@@ -29,7 +30,10 @@ def keys(buttons):
 
 def greet_user(bot, update, user_data):
     buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
-    update.message.reply_text(greeting, reply_markup=keys(buttons))
+    try:
+        update.message.reply_text(greeting, reply_markup=keys(buttons))
+    except AttributeError:
+        bot.send_message(chat_id=update.callback_query.message.chat.id, text=greeting, reply_markup=keys(buttons))
     if not user_in_db(update.message.chat["id"]):
         add_new_user(update.message.chat)
     return INLINE
@@ -46,9 +50,31 @@ def main_menu(bot, update, user_data):
                  'Room': add_room,
                  'Save': search_home,
                  'Edit': edit,
-                 'day': stay_days}
+                 'day': stay_days,
+                 'subscription_id': choose_subscription,
+                 'Delete_subscription': delete_subscription}
 
     return functions.get(command[0])(bot, update, user_data)
+
+
+def delete_subscription(bot, update, user_data):
+    sub_id = update.callback_query.data.split(';')[1]
+    delete_subcription(sub_id)
+    text = 'This subscription was deleted'
+    query = update.callback_query
+    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    query.edit_message_text(text, reply_markup=keys(buttons))
+    return INLINE
+
+
+def choose_subscription(bot, update, user_data):
+    sub_id = update.callback_query.data.split(';')[1]
+    your_subscription = get_subscription_by_id(sub_id)
+    text = f'please choose what to do with this subscription \n{your_subscription}'
+    buttons = [{'Menu': 'Menu' ,'Delete': f'Delete_subscription;{sub_id}'}]
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
+    return INLINE
 
 
 def edit(bot, update, user_data):
@@ -83,9 +109,16 @@ def help_comm(bot, update, user_data):
 
 
 def my_subs(bot, update, user_data):
-    text = 'Здесь должны быть существующие подписки'
     buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
+    subs = get_my_subscriptions(query.message.chat.id)
+    text = 'City              check in              check out              room type              price'
+    for subscription in subs:
+        subscription_button = {}
+        subscription_button[
+            f'{subscription[0]}, {subscription[1][:11]}, {subscription[2][:11]}, {subscription[3]}, ' \
+                f'{subscription[4]}'] = f'subscription_id;{subscription[5]}'
+        buttons.insert(0, subscription_button)
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
@@ -172,14 +205,13 @@ def stay_days(bot, update, user_data):
     return ask_for_guests_number(bot, update, user_data)
 
 
-
 def ask_for_guests_number(bot, update, user_data):
-        text = 'How many guests?'
-        buttons = [{'1': 'Adults;1', '2': 'Adults;2', '3': 'Adults;3'},
-                  {'4': 'Adults;4', '5': 'Adults;5', '6': 'Adults;6'}]
-        query = update.callback_query
-        query.edit_message_text(text, reply_markup=keys(buttons))
-        return INLINE
+    text = 'How many guests?'
+    buttons = [{'1': 'Adults;1', '2': 'Adults;2', '3': 'Adults;3'},
+               {'4': 'Adults;4', '5': 'Adults;5', '6': 'Adults;6'}]
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
+    return INLINE
 
 
 
@@ -227,7 +259,6 @@ def bd_write_subscription(query, user_data):
 
 def search_home(bot, update, user_data):
     query = update.callback_query
-    print(query)
     user_data['available_listings'] = []
     items_offset = 0
     has_next_page = True
@@ -244,15 +275,15 @@ def search_home(bot, update, user_data):
         try:
             try:
                 listings = homes['explore_tabs'][0]["sections"][1]['listings']
-            except KeyError: #TODO сделать выброс в главное меню без вызова команды старт
-                text = "Sorry we could't process your request, please try again, call /start command"
+            except KeyError:
+                text = "Sorry we could't process your request, please try again"
                 query.edit_message_text(text)
                 return greet_user(bot, update, user_data)
         except IndexError:
             try:
                 listings = homes['explore_tabs'][0]["sections"][0]['listings']
             except KeyError:
-                text = "Sorry we could't process your request, please try again, call /start command"
+                text = "Sorry we could't process your request, please try again"
                 query.edit_message_text(text)
                 return greet_user(bot, update, user_data)
 
@@ -267,8 +298,6 @@ def search_home(bot, update, user_data):
 
     bd_write_subscription(query, user_data)
 
-    print(user_data)
-    print(len(set(user_data['available_listings'])))
     text = thank_text
     params = {  # Ссылка для выдачи на веб на существующие варианты
         'query': user_data['city'],

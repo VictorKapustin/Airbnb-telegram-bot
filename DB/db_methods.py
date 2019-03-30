@@ -67,3 +67,19 @@ def add_new_subscription(telegram_id, user_data):
     session.add(new_subscription)
     session.commit()
     return new_subscription.id
+
+
+def get_my_subscriptions(telegram_id):
+    subs = []
+    for sub in session.query(Subscription).filter(Subscription.telegram_id == telegram_id).all():
+        subs.append([sub.city, sub.check_in, sub.check_out, sub.room_type, sub.max_price, sub.id])
+    return subs
+
+
+def get_subscription_by_id(sub_id):
+    sub = session.query(Subscription).filter(Subscription.id == sub_id).first()
+    return [sub.city, sub.check_in, sub.check_out, sub.room_type, sub.max_price, sub.id]
+
+def delete_subcription(sub_id):
+    session.query(Subscription).filter_by(id=sub_id).delete()
+    session.commit()
