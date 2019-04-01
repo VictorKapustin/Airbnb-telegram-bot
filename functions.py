@@ -6,9 +6,11 @@ import arrow
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 
 from DB.db_methods import add_listings, add_new_subscription, add_new_user, user_in_db, get_my_subscriptions
-from DB.db_methods import get_subscription_by_id, delete_subcription
+from DB.db_methods import get_subscription_by_id, delete_subcription, get_all_subs, find_new_listings
 from texts import greeting, help_text, thank_text
 from settings import web_url
+from DB.db_methods import session
+from DB.models import ListingId
 
 INLINE = 'inline'
 
@@ -49,7 +51,7 @@ def main_menu(bot, update, user_data):
                  'Adults': adults,
                  'Room': add_room,
                  'Save': search_home,
-                 'Edit': edit,
+                 'Edit': my_subs,
                  'day': stay_days,
                  'subscription_id': choose_subscription,
                  'Delete_subscription': delete_subscription}
@@ -71,7 +73,7 @@ def choose_subscription(bot, update, user_data):
     sub_id = update.callback_query.data.split(';')[1]
     your_subscription = get_subscription_by_id(sub_id)
     text = f'please choose what to do with this subscription \n{your_subscription}'
-    buttons = [{'Menu': 'Menu' ,'Delete': f'Delete_subscription;{sub_id}'}]
+    buttons = [{'Menu': 'Menu', 'Delete': f'Delete_subscription;{sub_id}'}]
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
@@ -94,8 +96,8 @@ def adults(bot, update, user_data):
 
 
 def menu(bot, update, user_data):
-    text = "Do you want to add new search or edit existing?"
-    buttons = [{'New search': 'New search', 'Edit existing search': 'Edit existing search'}]
+    text = "Do you want to add new search or delete existing?"
+    buttons = [{'New search': 'New search', 'Delete existing search': 'Edit'}]
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
@@ -124,8 +126,6 @@ def my_subs(bot, update, user_data):
 
 
 def new_search(bot, update, user_data):
-    bot.search_id += 1
-    user_data['search_id'] = str(bot.search_id)
     query = update.callback_query
     logging.info(f'@{query["message"]["chat"]["username"]} started new subscription')
     text = "Ok, now please choose your currency"
@@ -311,11 +311,63 @@ def search_home(bot, update, user_data):
         'refinement_paths[]': '/homes',
         'display_currency': user_data["currency"]
     }
-
+    #TODO сделать ограничение по добавление в подписку, 300 результатов это макс выдача, если больше 200, то не добавлять в бд
     give_url = requests.get(web_url, params=params)
     keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(text, reply_markup=reply_markup)
 
 
+def get_listings(bot, job):
+    print('started scan new listing')
+    list_of_subs = get_all_subs()
+    for sub in list_of_subs:
+        items_offset = 0
+        actual_listings = set()
+        has_next_page = True
+        api = airbnb.Api(randomize=True, currency=sub[0])
+        while has_next_page:
+            homes = api.get_homes(query=sub[1],
+                                  adults=sub[2],
+                                  price_max=sub[3],
+                                  checkin=sub[4][:10],
+                                  checkout=sub[5][:10],
+                                  room_types=sub[6],
+                                  offset=items_offset)  # Отступ объявлений
 
+            try:
+                try:
+                    listings = homes['explore_tabs'][0]["sections"][1]['listings']
+                except KeyError:
+                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+            except IndexError:
+                try:
+                    listings = homes['explore_tabs'][0]["sections"][0]['listings']
+                except KeyError:
+                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+
+            for listing in listings:
+                actual_listings.add(listing["listing"]["id"])
+
+            has_next_page = homes['explore_tabs'][0]['pagination_metadata']['has_next_page']
+            try:
+                items_offset = homes['explore_tabs'][0]['pagination_metadata']['items_offset']
+            except KeyError:
+                print('no next page while scanning for new listings')
+        print('actual', actual_listings)
+        print(len(actual_listings))
+        new_listings = find_new_listings(actual_listings, sub[7])
+        send_notification(new_listings, sub, bot)
+
+
+def send_notification(new_listings, parameters, bot):
+    for listing_id in new_listings:
+        text = 'Hello, we have found new home for you'
+        url = f'https://www.airbnb.com/rooms/{listing_id}?guests={parameters[2]}&' \
+            f'adults={parameters[2]}&check_in={parameters[4][:10]}&check_out={parameters[5][:10]}'
+        keyboard = [[InlineKeyboardButton('See listing', callback_data='url', url=f'{url}')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.send_message(chat_id=parameters[8], text=text, reply_markup=reply_markup)
+        new_listing = ListingId(listing_id=listing_id, subscription=parameters[7])
+        session.add(new_listing)
+    session.commit()

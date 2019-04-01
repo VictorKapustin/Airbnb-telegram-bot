@@ -1,16 +1,20 @@
 import logging
-from functions import INLINE, main_menu, set_city, checkin, max_price, greet_user
+from functions import INLINE, main_menu, set_city, checkin, max_price, greet_user, get_listings
 from settings import PROXY, key_bot
 from telegram.ext import CallbackQueryHandler, MessageHandler, Filters, Updater, CommandHandler, ConversationHandler
+from telegram.ext import JobQueue
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO,
                     handlers=[logging.FileHandler('bot.log', 'a', 'utf-8')]
                     )
 
 
+def test(bot, job):
+    print('test')
+
+
 def main():
     mybot = Updater(key_bot, request_kwargs=PROXY)
-    mybot.bot.search_id = 0
     logging.info('Bot is starting')
     state = {INLINE: [CallbackQueryHandler(main_menu, pass_user_data=True)],
              "city": [MessageHandler(Filters.text, set_city, pass_user_data=True)],
@@ -23,6 +27,7 @@ def main():
 
     dp = mybot.dispatcher
     dp.add_handler(search)
+    mybot.job_queue.run_repeating(get_listings, interval=20)
     mybot.start_polling()
     mybot.idle()
 
