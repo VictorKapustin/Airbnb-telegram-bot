@@ -27,7 +27,7 @@ def main():
 
     dp = mybot.dispatcher
     dp.add_handler(search)
-    mybot.job_queue.run_repeating(get_listings, interval=20)
+    mybot.job_queue.run_repeating(get_listings, interval=10)
     mybot.start_polling()
     mybot.idle()
 

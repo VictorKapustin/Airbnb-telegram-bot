@@ -3,6 +3,7 @@ import re
 import logging
 import airbnb
 import arrow
+import json
 from telegram import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 
 from DB.db_methods import add_listings, add_new_subscription, add_new_user, user_in_db, get_my_subscriptions
@@ -296,9 +297,15 @@ def search_home(bot, update, user_data):
         except KeyError:
             print('no next page')
 
-    bd_write_subscription(query, user_data)
+    if len(user_data['available_listings']) < 200:
+        bd_write_subscription(query, user_data)
+        text = thank_text
+    else:
+        text = f'We have found {len(user_data["available_listings"])} offers for your criteria, this is too much,' \
+            f'you can see these offers by pressing button bellow, but your subscription will not be added to our ' \
+            f'database. If you still want to add subscription and get new offers, please tighten your search, ' \
+            f'set lower price for example'
 
-    text = thank_text
     params = {  # Ссылка для выдачи на веб на существующие варианты
         'query': user_data['city'],
         'adults': user_data["adults"],
@@ -311,7 +318,7 @@ def search_home(bot, update, user_data):
         'refinement_paths[]': '/homes',
         'display_currency': user_data["currency"]
     }
-    #TODO сделать ограничение по добавление в подписку, 300 результатов это макс выдача, если больше 200, то не добавлять в бд
+
     give_url = requests.get(web_url, params=params)
     keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -362,12 +369,18 @@ def get_listings(bot, job):
 
 def send_notification(new_listings, parameters, bot):
     for listing_id in new_listings:
-        text = 'Hello, we have found new home for you'
+
         url = f'https://www.airbnb.com/rooms/{listing_id}?guests={parameters[2]}&' \
             f'adults={parameters[2]}&check_in={parameters[4][:10]}&check_out={parameters[5][:10]}'
+        api = airbnb.Api(randomize=True, currency=parameters[0])
+        details = api.get_listing_details(listing_id)
+        text = 'Hello, we have found new home for you:' \
+               f''
+        picture = details["pdp_listing_detail"]["photos"][0]["large"]
+
         keyboard = [[InlineKeyboardButton('See listing', callback_data='url', url=f'{url}')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        bot.send_message(chat_id=parameters[8], text=text, reply_markup=reply_markup)
+        bot.send_photo(chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
         new_listing = ListingId(listing_id=listing_id, subscription=parameters[7])
         session.add(new_listing)
     session.commit()
