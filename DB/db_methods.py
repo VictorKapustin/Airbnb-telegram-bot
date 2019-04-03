@@ -80,6 +80,29 @@ def get_subscription_by_id(sub_id):
     sub = session.query(Subscription).filter(Subscription.id == sub_id).first()
     return [sub.city, sub.check_in, sub.check_out, sub.room_type, sub.max_price, sub.id]
 
+
 def delete_subcription(sub_id):
+    session.query(ListingId).filter_by(subscription=sub_id).delete()
     session.query(Subscription).filter_by(id=sub_id).delete()
     session.commit()
+
+
+def get_all_subs():
+    subs = []
+    for sub in session.query(Subscription).all():
+        subs.append(
+            [sub.currency, sub.city, sub.adults, sub.max_price, sub.check_in, sub.check_out, sub.room_type, sub.id,
+             sub.telegram_id])
+    return subs
+
+
+def find_new_listings(list_of_listings, sub_id):
+    known_listings = set()
+    for listing in session.query(ListingId).filter_by(subscription=sub_id).all():
+        known_listings.add(listing.listing_id)
+    unknown_listings = list_of_listings.difference(known_listings)
+    print(known_listings)
+    print(len(known_listings))
+    print(unknown_listings)
+    print(len(unknown_listings))
+    return unknown_listings
