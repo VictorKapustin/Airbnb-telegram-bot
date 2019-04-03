@@ -379,6 +379,7 @@ def send_notification(new_listings, parameters, bot):
         picture = details["pdp_listing_detail"]["photos"][0]["large"]
 
         keyboard = [[InlineKeyboardButton('See listing', callback_data='url', url=f'{url}')]]
+
         reply_markup = InlineKeyboardMarkup(keyboard)
         bot.send_photo(chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
         new_listing = ListingId(listing_id=listing_id, subscription=parameters[7])
