@@ -26,17 +26,20 @@ def keys(buttons):
     for row_count, row in enumerate(buttons):
         keyboard.append([])
         for key, value in row.items():
-            keyboard[row_count].append(InlineKeyboardButton(key, callback_data=value))
+            keyboard[row_count].append(
+                InlineKeyboardButton(key, callback_data=value))
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
 
 
 def greet_user(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     try:
         update.message.reply_text(greeting, reply_markup=keys(buttons))
     except AttributeError:
-        bot.send_message(chat_id=update.callback_query.message.chat.id, text=greeting, reply_markup=keys(buttons))
+        bot.send_message(chat_id=update.callback_query.message.chat.id,
+                         text=greeting, reply_markup=keys(buttons))
     if not user_in_db(update.message.chat["id"]):
         add_new_user(update.message.chat)
     return INLINE
@@ -65,7 +68,8 @@ def delete_subscription(bot, update, user_data):
     delete_subcription(sub_id)
     text = 'This subscription was deleted'
     query = update.callback_query
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
@@ -105,22 +109,24 @@ def menu(bot, update, user_data):
 
 
 def help_comm(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     query.edit_message_text(help_text, reply_markup=keys(buttons))
     return INLINE
 
 
 def my_subs(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     subs = get_my_subscriptions(query.message.chat.id)
     text = 'City              check in              check out              room type              price'
     for subscription in subs:
         subscription_button = {}
         subscription_button[
-            f'{subscription[0]}, {subscription[1][:11]}, {subscription[2][:11]}, {subscription[3]}, ' \
-                f'{subscription[4]}'] = f'subscription_id;{subscription[5]}'
+            f'{subscription[0]}, {subscription[1][:11]}, {subscription[2][:11]}, {subscription[3]}, '
+            f'{subscription[4]}'] = f'subscription_id;{subscription[5]}'
         buttons.insert(0, subscription_button)
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
@@ -128,9 +134,11 @@ def my_subs(bot, update, user_data):
 
 def new_search(bot, update, user_data):
     query = update.callback_query
-    logging.info(f'@{query["message"]["chat"]["username"]} started new subscription')
+    logging.info(
+        f'@{query["message"]["chat"]["username"]} started new subscription')
     text = "Ok, now please choose your currency"
-    buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'}, {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
+    buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'},
+               {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
@@ -213,7 +221,6 @@ def ask_for_guests_number(bot, update, user_data):
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
-
 
 
 def choose_room(bot, update, user_data):
@@ -320,7 +327,8 @@ def search_home(bot, update, user_data):
     }
 
     give_url = requests.get(web_url, params=params)
-    keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
+    keyboard = [[InlineKeyboardButton(
+        'Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(text, reply_markup=reply_markup)
 
@@ -346,12 +354,14 @@ def get_listings(bot, job):
                 try:
                     listings = homes['explore_tabs'][0]["sections"][1]['listings']
                 except KeyError:
-                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+                    logging.info(
+                        f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
             except IndexError:
                 try:
                     listings = homes['explore_tabs'][0]["sections"][0]['listings']
                 except KeyError:
-                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+                    logging.info(
+                        f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
 
             for listing in listings:
                 actual_listings.add(listing["listing"]["id"])
@@ -378,10 +388,13 @@ def send_notification(new_listings, parameters, bot):
                f''
         picture = details["pdp_listing_detail"]["photos"][0]["large"]
 
-        keyboard = [[InlineKeyboardButton('See listing', callback_data='url', url=f'{url}')]]
+        keyboard = [[InlineKeyboardButton(
+            'See listing', callback_data='url', url=f'{url}')]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        bot.send_photo(chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
-        new_listing = ListingId(listing_id=listing_id, subscription=parameters[7])
+        bot.send_photo(
+            chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
+        new_listing = ListingId(listing_id=listing_id,
+                                subscription=parameters[7])
         session.add(new_listing)
     session.commit()

@@ -12,7 +12,7 @@ class ListingId(Base):
     __tablename__ = 'listing'
     id = Column(Integer, primary_key=True, autoincrement=True)
     listing_id = Column(Integer)
-    subscription = Column(String, ForeignKey('subscription.id'))
+    subscription = Column(Integer, ForeignKey('subscription.id'))
     subscription_id = relationship("Subscription", backref='subscriptions')
 
     def __repr__(self):
@@ -21,7 +21,7 @@ class ListingId(Base):
 
 class User(Base):
     __tablename__ = 'user'
-    telegram_id = Column(String(25), primary_key=True)
+    telegram_id = Column(Integer, primary_key=True)
     first_name = Column(String(25))
     last_name = Column(String(25))
     username = Column(String(25))
@@ -33,8 +33,8 @@ class User(Base):
 class Subscription(Base):
     __tablename__ = 'subscription'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(String(25), ForeignKey('user.telegram_id'))
-    check_in = Column(String(10))  #TODO мы можем хранить просто строку
+    telegram_id = Column(Integer, ForeignKey('user.telegram_id'))
+    check_in = Column(String(10))  # TODO мы можем хранить просто строку
     check_out = Column(String(10))
     city = Column(String(25))
     currency = Column(String(3))
@@ -51,4 +51,3 @@ class Subscription(Base):
 if __name__ == "__main__":
     engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
     Base.metadata.create_all(engine)
-

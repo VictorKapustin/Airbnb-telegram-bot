@@ -9,10 +9,6 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     )
 
 
-def test(bot, job):
-    print('test')
-
-
 def main():
     mybot = Updater(key_bot, request_kwargs=PROXY)
     logging.info('Bot is starting')
