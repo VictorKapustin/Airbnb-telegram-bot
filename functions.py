@@ -26,17 +26,20 @@ def keys(buttons):
     for row_count, row in enumerate(buttons):
         keyboard.append([])
         for key, value in row.items():
-            keyboard[row_count].append(InlineKeyboardButton(key, callback_data=value))
+            keyboard[row_count].append(
+                InlineKeyboardButton(key, callback_data=value))
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
 
 
 def greet_user(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     try:
         update.message.reply_text(greeting, reply_markup=keys(buttons))
     except AttributeError:
-        bot.send_message(chat_id=update.callback_query.message.chat.id, text=greeting, reply_markup=keys(buttons))
+        bot.send_message(chat_id=update.callback_query.message.chat.id,
+                         text=greeting, reply_markup=keys(buttons))
     if not user_in_db(update.message.chat["id"]):
         add_new_user(update.message.chat)
     return INLINE
@@ -55,7 +58,9 @@ def main_menu(bot, update, user_data):
                  'Edit': my_subs,
                  'day': stay_days,
                  'subscription_id': choose_subscription,
-                 'Delete_subscription': delete_subscription}
+                 'Delete_subscription': delete_subscription,
+                 'month': choose_day_checkin,
+                 'checkin': write_check_in}
 
     return functions.get(command[0])(bot, update, user_data)
 
@@ -65,7 +70,8 @@ def delete_subscription(bot, update, user_data):
     delete_subcription(sub_id)
     text = 'This subscription was deleted'
     query = update.callback_query
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
@@ -105,22 +111,24 @@ def menu(bot, update, user_data):
 
 
 def help_comm(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     query.edit_message_text(help_text, reply_markup=keys(buttons))
     return INLINE
 
 
 def my_subs(bot, update, user_data):
-    buttons = [{'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
+    buttons = [
+        {'Menu': 'Menu', 'My subscriptions': 'My subscriptions'}, {'Help': 'Help'}]
     query = update.callback_query
     subs = get_my_subscriptions(query.message.chat.id)
     text = 'City              check in              check out              room type              price'
     for subscription in subs:
         subscription_button = {}
         subscription_button[
-            f'{subscription[0]}, {subscription[1][:11]}, {subscription[2][:11]}, {subscription[3]}, ' \
-                f'{subscription[4]}'] = f'subscription_id;{subscription[5]}'
+            f'{subscription[0]}, {subscription[1][:11]}, {subscription[2][:11]}, {subscription[3]}, '
+            f'{subscription[4]}'] = f'subscription_id;{subscription[5]}'
         buttons.insert(0, subscription_button)
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
@@ -128,9 +136,11 @@ def my_subs(bot, update, user_data):
 
 def new_search(bot, update, user_data):
     query = update.callback_query
-    logging.info(f'@{query["message"]["chat"]["username"]} started new subscription')
+    logging.info(
+        f'@{query["message"]["chat"]["username"]} started new subscription')
     text = "Ok, now please choose your currency"
-    buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'}, {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
+    buttons = [{'USD$': 'Curr;USD', 'EUR€': 'Curr;EUR'},
+               {'RUB₽': 'Curr;RUB', 'GBP£': 'Curr;GBP'}]
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
@@ -154,36 +164,53 @@ def set_city(bot, update, user_data):
         return 'city'
     elif match:
         user_data['city'] = city
-        return ask_for_check_in(bot, update, user_data)
+        return choose_month(bot, update, user_data)
     else:
         text = 'Please write city name in English'
         update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         return 'city'
 
 
-def ask_for_check_in(bot, update, user_data):
-    text = 'When do you want to check in? Date format: YYYY-MM-DD'
-    update.message.reply_text(text)
-    return 'checkin'
+def choose_month(bot, update, user_data):
+    text = 'Choose month of check in?'
+    buttons = [{}, {}, {}, {}]
+    months_count = 0
+    now = arrow.utcnow()
+    for row in buttons:
+        for month in range(2):
+            row[str(now.shift(months=+months_count).format('MMMM'))] = 'month;' + \
+                str(now.shift(months=+months_count).format('YYYY-MM'))
+            months_count += 1
+    update.message.reply_text(text, reply_markup=keys(buttons))
+    return INLINE
 
 
-def checkin(bot, update, user_data):
-    check_in = update.message.text
-    template = '\d{4}-\d\d-\d\d'
-    match = re.fullmatch(template, check_in)
-    if match:
-        date = arrow.get(check_in)
-        if date > arrow.utcnow():
-            user_data['check_in'] = check_in
-            return ask_for_check_out(bot, update, user_data)
-        else:
-            text = 'Your date is in the past, please enter date in future, format: YYYY-MM-DD'
-            update.message.reply_text(text)
-            return 'checkin'
-    else:
-        text = 'Your date is incorrect, please enter date in format YYYY-MM-DD'
-        update.message.reply_text(text)
-        return 'checkin'
+def choose_day_checkin(bot, update, user_data):
+    year_month = update.callback_query.data.split(';')[1]
+    print_date = arrow.get(year_month, "YYYY-MM").format("MMMM YYYY")
+    text = f'Choose day in {print_date} to check in?'
+    buttons = [{}, {}, {}, {}, {}]
+    day = 1
+    br = 0
+    for row in buttons:
+        for day_number in range(7):
+            row[str(day)] = 'checkin;' + year_month + '-' + str(day)
+            if year_month != arrow.get(year_month, "YYYY-MM").shift(days=+day).format("YYYY-MM"):
+                br = 1
+                break
+            day += 1
+        if br:
+            break
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
+    return INLINE
+
+
+def write_check_in(bot, update, user_data):
+    checkin = update.callback_query.data.split(';')[1]
+    print(checkin)
+    user_data['check_in'] = checkin
+    return ask_for_check_out(bot, update, user_data)
 
 
 def ask_for_check_out(bot, update, user_data):
@@ -194,7 +221,8 @@ def ask_for_check_out(bot, update, user_data):
         for day_number in range(6):
             row[str(day)] = 'day;'+str(day)
             day += 1
-    update.message.reply_text(text, reply_markup=keys(buttons))
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
 
@@ -213,7 +241,6 @@ def ask_for_guests_number(bot, update, user_data):
     query = update.callback_query
     query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
-
 
 
 def choose_room(bot, update, user_data):
@@ -320,7 +347,8 @@ def search_home(bot, update, user_data):
     }
 
     give_url = requests.get(web_url, params=params)
-    keyboard = [[InlineKeyboardButton('Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
+    keyboard = [[InlineKeyboardButton(
+        'Go to Airbnb', callback_data='url', url=f'{give_url.url}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(text, reply_markup=reply_markup)
 
@@ -346,12 +374,14 @@ def get_listings(bot, job):
                 try:
                     listings = homes['explore_tabs'][0]["sections"][1]['listings']
                 except KeyError:
-                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+                    logging.info(
+                        f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
             except IndexError:
                 try:
                     listings = homes['explore_tabs'][0]["sections"][0]['listings']
                 except KeyError:
-                    logging.info(f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
+                    logging.info(
+                        f'Have a KeyError on {sub[7]} subscription while trying to get new listings')
 
             for listing in listings:
                 actual_listings.add(listing["listing"]["id"])
@@ -378,10 +408,13 @@ def send_notification(new_listings, parameters, bot):
                f''
         picture = details["pdp_listing_detail"]["photos"][0]["large"]
 
-        keyboard = [[InlineKeyboardButton('See listing', callback_data='url', url=f'{url}')]]
+        keyboard = [[InlineKeyboardButton(
+            'See listing', callback_data='url', url=f'{url}')]]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        bot.send_photo(chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
-        new_listing = ListingId(listing_id=listing_id, subscription=parameters[7])
+        bot.send_photo(
+            chat_id=parameters[8], photo=picture, caption=text, reply_markup=reply_markup)
+        new_listing = ListingId(listing_id=listing_id,
+                                subscription=parameters[7])
         session.add(new_listing)
     session.commit()

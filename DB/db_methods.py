@@ -24,6 +24,7 @@ def add_listings(listings, subscription_id):
         session.add(new_listing)
     session.commit()
 
+
 def user_in_db(telegram_id):
     """
     Check if user already in Database
@@ -58,8 +59,8 @@ def add_new_subscription(telegram_id, user_data):
     """
     logging.info("Add subscription new in DB")
     new_subscription = Subscription(telegram_id=telegram_id,
-                                    check_in=datetime.strptime(user_data["check_in"], "%Y-%m-%d"),
-                                    check_out=datetime.strptime(user_data["check_out"], "%Y-%m-%d"),
+                                    check_in=user_data["check_in"],
+                                    check_out=user_data["check_out"],
                                     city=user_data["city"], currency=user_data["currency"],
                                     max_price=user_data["max_price"],
                                     adults=user_data['adults'],
@@ -72,7 +73,8 @@ def add_new_subscription(telegram_id, user_data):
 def get_my_subscriptions(telegram_id):
     subs = []
     for sub in session.query(Subscription).filter(Subscription.telegram_id == telegram_id).all():
-        subs.append([sub.city, sub.check_in, sub.check_out, sub.room_type, sub.max_price, sub.id])
+        subs.append([sub.city, sub.check_in, sub.check_out,
+                     sub.room_type, sub.max_price, sub.id])
     return subs
 
 
