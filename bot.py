@@ -1,5 +1,5 @@
 import logging
-from functions import INLINE, main_menu, set_city, checkin, max_price, greet_user, get_listings
+from functions import INLINE, main_menu, set_city, max_price, greet_user, get_listings
 from settings import PROXY, key_bot
 from telegram.ext import CallbackQueryHandler, MessageHandler, Filters, Updater, CommandHandler, ConversationHandler
 from telegram.ext import JobQueue
@@ -14,7 +14,6 @@ def main():
     logging.info('Bot is starting')
     state = {INLINE: [CallbackQueryHandler(main_menu, pass_user_data=True)],
              "city": [MessageHandler(Filters.text, set_city, pass_user_data=True)],
-             'checkin': [MessageHandler(Filters.text, checkin, pass_user_data=True)],
              'maxprice': [MessageHandler(Filters.text, max_price, pass_user_data=True)]
              }
     entry_point = [CommandHandler('start', greet_user, pass_user_data=True)]

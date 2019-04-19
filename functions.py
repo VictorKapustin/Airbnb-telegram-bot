@@ -58,7 +58,9 @@ def main_menu(bot, update, user_data):
                  'Edit': my_subs,
                  'day': stay_days,
                  'subscription_id': choose_subscription,
-                 'Delete_subscription': delete_subscription}
+                 'Delete_subscription': delete_subscription,
+                 'month': choose_day_checkin,
+                 'checkin': write_check_in}
 
     return functions.get(command[0])(bot, update, user_data)
 
@@ -162,36 +164,53 @@ def set_city(bot, update, user_data):
         return 'city'
     elif match:
         user_data['city'] = city
-        return ask_for_check_in(bot, update, user_data)
+        return choose_month(bot, update, user_data)
     else:
         text = 'Please write city name in English'
         update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         return 'city'
 
 
-def ask_for_check_in(bot, update, user_data):
-    text = 'When do you want to check in? Date format: YYYY-MM-DD'
-    update.message.reply_text(text)
-    return 'checkin'
+def choose_month(bot, update, user_data):
+    text = 'Choose month of check in?'
+    buttons = [{}, {}, {}, {}]
+    months_count = 0
+    now = arrow.utcnow()
+    for row in buttons:
+        for month in range(2):
+            row[str(now.shift(months=+months_count).format('MMMM'))] = 'month;' + \
+                str(now.shift(months=+months_count).format('YYYY-MM'))
+            months_count += 1
+    update.message.reply_text(text, reply_markup=keys(buttons))
+    return INLINE
 
 
-def checkin(bot, update, user_data):
-    check_in = update.message.text
-    template = '\d{4}-\d\d-\d\d'
-    match = re.fullmatch(template, check_in)
-    if match:
-        date = arrow.get(check_in)
-        if date > arrow.utcnow():
-            user_data['check_in'] = check_in
-            return ask_for_check_out(bot, update, user_data)
-        else:
-            text = 'Your date is in the past, please enter date in future, format: YYYY-MM-DD'
-            update.message.reply_text(text)
-            return 'checkin'
-    else:
-        text = 'Your date is incorrect, please enter date in format YYYY-MM-DD'
-        update.message.reply_text(text)
-        return 'checkin'
+def choose_day_checkin(bot, update, user_data):
+    year_month = update.callback_query.data.split(';')[1]
+    print_date = arrow.get(year_month, "YYYY-MM").format("MMMM YYYY")
+    text = f'Choose day in {print_date} to check in?'
+    buttons = [{}, {}, {}, {}, {}]
+    day = 1
+    br = 0
+    for row in buttons:
+        for day_number in range(7):
+            row[str(day)] = 'checkin;' + year_month + '-' + str(day)
+            if year_month != arrow.get(year_month, "YYYY-MM").shift(days=+day).format("YYYY-MM"):
+                br = 1
+                break
+            day += 1
+        if br:
+            break
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
+    return INLINE
+
+
+def write_check_in(bot, update, user_data):
+    checkin = update.callback_query.data.split(';')[1]
+    print(checkin)
+    user_data['check_in'] = checkin
+    return ask_for_check_out(bot, update, user_data)
 
 
 def ask_for_check_out(bot, update, user_data):
@@ -202,7 +221,8 @@ def ask_for_check_out(bot, update, user_data):
         for day_number in range(6):
             row[str(day)] = 'day;'+str(day)
             day += 1
-    update.message.reply_text(text, reply_markup=keys(buttons))
+    query = update.callback_query
+    query.edit_message_text(text, reply_markup=keys(buttons))
     return INLINE
 
 
